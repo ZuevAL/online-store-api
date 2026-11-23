@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
@@ -30,3 +32,11 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'balance')
+
+
+class TopUpSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+    )

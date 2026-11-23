@@ -72,3 +72,75 @@ class UserProfileTests(APITestCase):
         response = self.client.get(reverse(self.url_name))
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class BalanceTopUpTests(APITestCase):
+    def setUp(self):
+        self.url = reverse('users:top_up')
+        self.user = get_user_model().objects.create_user(
+            username='buyer', balance=Decimal('20.00')
+        )
+        access_token = AccessToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+    def test_adds_amount_to_token_owners_balance(self):
+        other_user = get_user_model().objects.create_user(
+            username='other_user', balance=Decimal('42.00')
+        )
+
+        response = self.client.post(
+            self.url, {'amount': '5.50'}, format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {'balance': '25.50'})
+        self.user.refresh_from_db()
+        other_user.refresh_from_db()
+        self.assertEqual(self.user.balance, Decimal('25.50'))
+        self.assertEqual(other_user.balance, Decimal('42.00'))
+
+    def test_rejects_invalid_amounts(self):
+        invalid_payloads = (
+            {},
+            {'amount': '0'},
+            {'amount': '-1'},
+            {'amount': '0.001'},
+            {'amount': 'invalid'},
+        )
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                response = self.client.post(self.url, payload, format='json')
+
+                self.assertEqual(
+                    response.status_code, status.HTTP_400_BAD_REQUEST
+                )
+                self.assertIn('amount', response.data)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.balance, Decimal('20.00'))
+
+    def test_enforces_maximum_balance(self):
+        self.user.balance = Decimal('9999999999.98')
+        self.user.save(update_fields=['balance'])
+
+        payload = {'amount': '0.01'}
+        at_limit = self.client.post(self.url, payload, format='json')
+        over_limit = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(at_limit.status_code, status.HTTP_200_OK)
+        self.assertEqual(at_limit.data, {'balance': '9999999999.99'})
+        self.assertEqual(over_limit.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('amount', over_limit.data)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.balance, Decimal('9999999999.99'))
+
+    def test_requires_authentication(self):
+        self.client.credentials()
+
+        response = self.client.post(
+            self.url, {'amount': '5.50'}, format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.balance, Decimal('20.00'))

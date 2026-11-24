@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.products',
     'apps.cart',
+    'apps.orders',
     'rest_framework',
 ]
 
@@ -145,4 +146,20 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+}
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'orders_console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'apps.orders': {
+            'handlers': ['orders_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
 }

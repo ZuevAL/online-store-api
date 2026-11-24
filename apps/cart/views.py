@@ -32,7 +32,8 @@ class CartViewSet(mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.Gene
             item = self.get_object()
             serializer = UpdateCartItemSerializer(item, data=request.data)
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            item.quantity = serializer.validated_data['quantity']
+            item.save(update_fields=['quantity'])
             data = self.get_serializer(item).data
 
         return Response(data)

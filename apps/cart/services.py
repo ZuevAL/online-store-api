@@ -13,8 +13,7 @@ from .models import MAX_QUANTITY, CartItem
 @contextmanager
 def cart_write_transaction(user):
     with transaction.atomic():
-        get_user_model().objects.select_for_update().get(pk=user.pk)
-        yield
+        yield get_user_model().objects.select_for_update().get(pk=user.pk)
 
 
 def add_cart_item(user, product, quantity):

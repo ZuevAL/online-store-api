@@ -1,8 +1,13 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 
 from .models import CartItem
-from .serializers import AddCartItemSerializer, CartItemSerializer, UpdateCartItemSerializer
+from .serializers import (
+    AddCartItemSerializer,
+    CartItemSerializer,
+    UpdateCartItemSerializer,
+)
 from .services import add_cart_item, cart_write_transaction
 
 
@@ -16,6 +21,14 @@ class CartViewSet(mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.Gene
             .order_by('pk')
         )
 
+    @extend_schema(
+        request=AddCartItemSerializer,
+        responses={
+            status.HTTP_200_OK: CartItemSerializer,
+            status.HTTP_201_CREATED: CartItemSerializer,
+        },
+        description='Повторное добавление товара увеличивает его количество.',
+    )
     def create(self, request, *args, **kwargs):
         serializer = AddCartItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -27,6 +40,11 @@ class CartViewSet(mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.Gene
         response_status = (status.HTTP_201_CREATED if created else status.HTTP_200_OK)
         return Response(data, status=response_status)
 
+    @extend_schema(
+        request=UpdateCartItemSerializer,
+        responses={status.HTTP_200_OK: CartItemSerializer},
+        description='Обязательное поле `quantity` задаёт новое количество.',
+    )
     def partial_update(self, request, *args, **kwargs):
         with cart_write_transaction(request.user):
             item = self.get_object()
